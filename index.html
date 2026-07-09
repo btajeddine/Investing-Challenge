@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Ledger — Dividend & Valuation Quiz</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+<style>
+/* =====================================================
+   THE LEDGER — market-ledger aesthetic.
+   Ledger-paper background, navy ink, gain green / loss red.
+   ===================================================== */
+:root {
+  --paper: #F7F5EF;
+  --line: #E3DFD2;
+  --ink: #1B2A4A;        /* navy ink */
+  --ink-soft: #6B7690;
+  --gain: #0E8A5F;       /* market green */
+  --loss: #C0392B;       /* market red */
+  --gold: #B8860B;
+  --card: #FFFFFF;
+  --radius: 12px;
+  --mono: "SF Mono", "Cascadia Code", Consolas, "Roboto Mono", monospace;
+  --serif: Georgia, "Times New Roman", serif;
+  --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: var(--sans); background: var(--paper); color: var(--ink);
+  /* faint ledger ruling */
+  background-image: repeating-linear-gradient(transparent 0 31px, var(--line) 31px 32px);
+  min-height: 100vh;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+.wrap { max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
+
+/* ---------- Masthead ---------- */
+.masthead { text-align: center; padding: 10px 0 14px; border-bottom: 3px double var(--ink); }
+.masthead h1 { font-family: var(--serif); font-size: clamp(1.7rem, 6vw, 2.3rem); letter-spacing: .02em; }
+.masthead .tagline { font-family: var(--mono); font-size: .72rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .18em; margin-top: 4px; }
+.ticker { font-family: var(--mono); font-size: .78rem; margin-top: 8px; }
+.ticker .up { color: var(--gain); } .ticker .down { color: var(--loss); }
+
+/* ---------- Scoreboard ---------- */
+.scoreboard { display: flex; justify-content: center; gap: 22px; margin: 16px 0 6px; font-family: var(--mono); }
+.score-item { text-align: center; }
+.score-item .num { font-size: 1.5rem; font-weight: 700; }
+.score-item .lbl { font-size: .62rem; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-soft); }
+.num.streak-hot { color: var(--gain); }
+
+/* ---------- Mode tabs ---------- */
+.tabs { display: flex; justify-content: center; gap: 8px; margin: 12px 0 18px; }
+.tab {
+  font-family: var(--mono); font-size: .78rem; text-transform: uppercase; letter-spacing: .08em;
+  padding: 8px 18px; border: 1.5px solid var(--ink); border-radius: 999px; background: var(--card);
+  transition: all .15s ease;
+}
+.tab.active { background: var(--ink); color: var(--paper); }
+
+/* ---------- Card ---------- */
+.card {
+  background: var(--card); border: 1.5px solid var(--ink); border-radius: var(--radius);
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 22px 20px; margin-bottom: 16px;
+  animation: deal .3s ease;
+}
+@keyframes deal { from { transform: translateY(10px); opacity: 0; } }
+.category {
+  display: inline-block; font-family: var(--mono); font-size: .64rem; text-transform: uppercase;
+  letter-spacing: .14em; color: var(--gold); border: 1px solid var(--gold);
+  padding: 3px 10px; border-radius: 999px; margin-bottom: 12px;
+}
+.question { font-size: 1.08rem; line-height: 1.5; font-weight: 600; margin-bottom: 16px; }
+.question .figures { font-family: var(--mono); background: var(--paper); display: block; margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: .92rem; font-weight: 400; }
+
+.options { display: flex; flex-direction: column; gap: 9px; }
+.option {
+  text-align: left; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 10px;
+  background: var(--card); font-size: .95rem; transition: all .15s ease; display: flex; gap: 10px; align-items: baseline;
+}
+.option:hover:not(:disabled) { border-color: var(--ink); transform: translateX(3px); }
+.option .letter { font-family: var(--mono); font-weight: 700; color: var(--ink-soft); }
+.option.right { border-color: var(--gain); background: #E8F6F0; }
+.option.right .letter { color: var(--gain); }
+.option.wrong { border-color: var(--loss); background: #FBEBE8; }
+.option.wrong .letter { color: var(--loss); }
+.option:disabled { cursor: default; opacity: .85; }
+
+.explain {
+  margin-top: 14px; padding: 12px 14px; background: var(--paper); border-left: 3px solid var(--gold);
+  border-radius: 0 8px 8px 0; font-size: .88rem; line-height: 1.55; display: none;
+}
+.explain.show { display: block; animation: deal .25s ease; }
+.explain strong { color: var(--gold); }
+
+.verdict { font-family: var(--mono); font-weight: 700; margin-top: 12px; display: none; }
+.verdict.show { display: block; }
+.verdict.gain { color: var(--gain); } .verdict.loss { color: var(--loss); }
+
+/* ---------- Flashcard mode ---------- */
+.flash {
+  min-height: 230px; perspective: 1000px; cursor: pointer; user-select: none;
+}
+.flash-inner {
+  position: relative; width: 100%; min-height: 230px;
+  transition: transform .5s; transform-style: preserve-3d;
+}
+.flash.flipped .flash-inner { transform: rotateY(180deg); }
+.flash-face {
+  position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 24px; text-align: center; border-radius: var(--radius);
+}
+.flash-front .term { font-family: var(--serif); font-size: 1.7rem; }
+.flash-back { transform: rotateY(180deg); background: var(--ink); color: var(--paper); border-radius: calc(var(--radius) - 2px); }
+.flash-back p { font-size: .95rem; line-height: 1.55; }
+.flash-hint { font-family: var(--mono); font-size: .66rem; text-transform: uppercase; letter-spacing: .12em; color: var(--ink-soft); }
+.flash-back .flash-hint { color: #9AA8C7; }
+
+/* ---------- Controls ---------- */
+.controls { display: flex; justify-content: center; gap: 10px; }
+.btn {
+  font-family: var(--mono); font-size: .82rem; text-transform: uppercase; letter-spacing: .08em;
+  padding: 12px 26px; border-radius: 999px; background: var(--ink); color: var(--paper);
+  border: 1.5px solid var(--ink); box-shadow: 3px 3px 0 rgba(27,42,74,.35);
+  transition: transform .12s ease;
+}
+.btn:hover { transform: translate(-1px, -1px); }
+.btn:active { transform: translate(2px, 2px); box-shadow: none; }
+.btn.ghost { background: var(--card); color: var(--ink); }
+footer { text-align: center; font-family: var(--mono); font-size: .68rem; color: var(--ink-soft); margin-top: 26px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>The Ledger</h1>
+    <div class="tagline">Dividend &amp; Valuation Drill</div>
+    <div class="ticker" id="ticker">KNOWLEDGE <span class="up">▲ compounding daily</span> · GUESSWORK <span class="down">▼ delisted</span></div>
+  </header>
+
+  <div class="scoreboard">
+    <div class="score-item"><div class="num" id="sb-score">0</div><div class="lbl">Correct</div></div>
+    <div class="score-item"><div class="num" id="sb-attempted">0</div><div class="lbl">Attempted</div></div>
+    <div class="score-item"><div class="num" id="sb-streak">0</div><div class="lbl">Streak</div></div>
+    <div class="score-item"><div class="num" id="sb-best">0</div><div class="lbl">Best</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-quiz">Quiz</button>
+    <button class="tab" id="tab-flash">Flashcards</button>
+  </div>
+
+  <!-- QUIZ MODE -->
+  <div id="quiz-view">
+    <div class="card" id="quiz-card">
+      <span class="category" id="q-category"></span>
+      <div class="question" id="q-text"></div>
+      <div class="options" id="q-options"></div>
+      <div class="verdict" id="q-verdict"></div>
+      <div class="explain" id="q-explain"></div>
+    </div>
+    <div class="controls">
+      <button class="btn" id="btn-next" style="visibility:hidden">Next question →</button>
+    </div>
+  </div>
+
+  <!-- FLASHCARD MODE -->
+  <div id="flash-view" style="display:none">
+    <div class="card flash" id="flash-card">
+      <div class="flash-inner">
+        <div class="flash-face flash-front">
+          <span class="category" id="f-category"></span>
+          <div class="term" id="f-term"></div>
+          <div class="flash-hint">Tap to flip</div>
+        </div>
+        <div class="flash-face flash-back">
+          <p id="f-def"></p>
+          <div class="flash-hint">Tap to flip back</div>
+        </div>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="btn ghost" id="btn-shuffle">Shuffle</button>
+      <button class="btn" id="btn-flash-next">Next card →</button>
+    </div>
+  </div>
+
+  <footer>Streaks saved on this device · Buy knowledge, hold forever.</footer>
+</div>
+
+<script>
+"use strict";
+
+/* =====================================================
+   QUESTION BANK
+   type "def"  : concept question
+   type "calc" : numbers given, compute the answer
+   Every question: category, q, options[4], answer (index), why
+   ===================================================== */
+const QUESTIONS = [
+  // ---------- DIVIDENDS ----------
+  { cat: "Dividends", q: "What is the dividend yield of a stock?", options: [
+      "Annual dividend per share ÷ share price",
+      "Share price ÷ annual dividend per share",
+      "Total dividends ÷ company profit",
+      "Dividend growth rate over 5 years"
+    ], answer: 0, why: "<strong>Yield = annual dividend ÷ price.</strong> A $2 dividend on a $50 stock = 4% yield. It's the cash return you get just for holding." },
+  { cat: "Dividends", q: "A stock trades at $80 and pays $3.20 per year in dividends. What's the yield?", fig: "Price $80 · Dividend $3.20/yr", options: ["2.5%", "4.0%", "5.0%", "8.0%"], answer: 1, why: "3.20 ÷ 80 = 0.04 → <strong>4%</strong>. Always divide dividend by price, not the other way round." },
+  { cat: "Dividends", q: "What is the payout ratio?", options: [
+      "Dividends paid ÷ net income",
+      "Dividends paid ÷ revenue",
+      "Net income ÷ dividends paid",
+      "Dividends ÷ market cap"
+    ], answer: 0, why: "<strong>Payout ratio = dividends ÷ earnings.</strong> It shows what share of profit is handed to shareholders. Above ~80% can be a warning the dividend is stretched." },
+  { cat: "Dividends", q: "A company earns $4.00 per share and pays a $1.00 dividend. Payout ratio?", fig: "EPS $4.00 · Dividend $1.00", options: ["4%", "25%", "40%", "75%"], answer: 1, why: "1 ÷ 4 = <strong>25%</strong>. Low payout = room to grow the dividend or reinvest." },
+  { cat: "Dividends", q: "If you buy a stock ON its ex-dividend date, do you get the next dividend?", options: [
+      "No — you had to own it before the ex-date",
+      "Yes — you own it on the ex-date",
+      "Only if you hold 30 more days",
+      "Only for special dividends"
+    ], answer: 0, why: "Buy <strong>before</strong> the ex-dividend date to receive the payment. On or after the ex-date, the seller keeps it — and the price typically drops by roughly the dividend amount." },
+  { cat: "Dividends", q: "What is a DRIP?", options: [
+      "Automatically reinvesting dividends into more shares",
+      "A slow decline in dividend payments",
+      "A dividend paid in debt instead of cash",
+      "Selling shares gradually over time"
+    ], answer: 0, why: "<strong>Dividend ReInvestment Plan</strong> — dividends buy more shares automatically, often commission-free. It's compounding on autopilot." },
+  { cat: "Dividends", q: "A 'Dividend Aristocrat' is a company that has…", options: [
+      "Raised its dividend for 25+ consecutive years",
+      "The highest yield in the S&P 500",
+      "Never cut its dividend once",
+      "Paid dividends for at least 100 years"
+    ], answer: 0, why: "Aristocrats have <strong>increased</strong> (not just paid) dividends for 25+ straight years — a signal of durable, growing cash flow." },
+  { cat: "Dividends", q: "A stock yields 12% while similar companies yield 3%. Most likely explanation?", options: [
+      "The market expects the dividend to be cut",
+      "It's simply 4x more generous",
+      "It has 4x the profit of its peers",
+      "High yields are always safe income"
+    ], answer: 0, why: "An unusually high yield usually means the <strong>price has crashed</strong> because investors doubt the dividend survives. This is the classic 'yield trap'." },
+  { cat: "Dividends", q: "You own 200 shares paying $0.55 per share quarterly. Your annual dividend income?", fig: "200 shares · $0.55/share per quarter", options: ["$110", "$220", "$440", "$550"], answer: 2, why: "200 × 0.55 = $110 per quarter × 4 = <strong>$440/yr</strong>. Quarterly vs annual trips up everyone once." },
+
+  // ---------- VALUATION ----------
+  { cat: "Valuation", q: "What does the P/E ratio tell you?", options: [
+      "How many dollars you pay per $1 of annual earnings",
+      "How much profit the company makes",
+      "The percentage return you'll earn each year",
+      "How much debt the company carries"
+    ], answer: 0, why: "<strong>P/E = price ÷ earnings per share.</strong> A P/E of 20 means you pay $20 for every $1 of yearly profit. Higher P/E = higher expectations baked in." },
+  { cat: "Valuation", q: "A stock trades at $60 with EPS of $3. What's its P/E?", fig: "Price $60 · EPS $3.00", options: ["5", "18", "20", "180"], answer: 2, why: "60 ÷ 3 = <strong>20</strong>. Simple, but it's the most-quoted number in investing — know it cold." },
+  { cat: "Valuation", q: "Company A: P/E 35. Company B: P/E 12, same industry. What can you say?", options: [
+      "The market expects much faster growth from A",
+      "A is definitely overpriced",
+      "B is definitely the better buy",
+      "A earns 3x more profit than B"
+    ], answer: 0, why: "A high P/E means the market is <strong>paying up for expected growth</strong>. It could be justified or not — the ratio starts the conversation, it doesn't end it." },
+  { cat: "Valuation", q: "What is market capitalisation?", options: [
+      "Share price × number of shares outstanding",
+      "Total assets minus total debt",
+      "Annual revenue × profit margin",
+      "The cash a company holds"
+    ], answer: 0, why: "<strong>Market cap = price × share count</strong> — what the market says the whole company is worth. A $50 stock isn't 'cheaper' than a $500 stock; cap is what matters." },
+  { cat: "Valuation", q: "A company has 500 million shares at $40 each. Market cap?", fig: "500M shares · $40/share", options: ["$2 billion", "$12.5 billion", "$20 billion", "$200 billion"], answer: 2, why: "500,000,000 × 40 = <strong>$20B</strong> — a mid-to-large cap. Watch your zeros." },
+  { cat: "Valuation", q: "The PEG ratio improves on P/E by adding what?", options: [
+      "The company's earnings growth rate",
+      "The dividend yield",
+      "Government bond yields",
+      "The debt-to-equity ratio"
+    ], answer: 0, why: "<strong>PEG = P/E ÷ growth rate.</strong> A P/E of 30 with 30% growth gives PEG 1.0 — expensive-looking but reasonably priced for its growth. Roughly: under 1 is attractive." },
+  { cat: "Valuation", q: "What is the price-to-book (P/B) ratio comparing?", options: [
+      "Market value vs the accounting value of net assets",
+      "Share price vs the price in the IPO 'book'",
+      "Price vs total revenue",
+      "Price vs cash in the bank"
+    ], answer: 0, why: "<strong>P/B = price ÷ book value per share</strong> (assets minus liabilities). Most useful for banks and asset-heavy businesses; less meaningful for software firms." },
+  { cat: "Valuation", q: "Why do investors watch free cash flow (FCF) rather than just net income?", options: [
+      "Cash is harder to manipulate than accounting profit",
+      "FCF is always bigger than profit",
+      "Net income excludes revenue",
+      "FCF includes dividends received"
+    ], answer: 0, why: "Earnings involve accounting judgement; <strong>cash actually arriving is harder to fake</strong>. FCF is what's left after real expenses and investment — the money that funds dividends and buybacks." },
+  { cat: "Valuation", q: "A stock's price doubles but its earnings stay flat. Its P/E…", options: ["Doubles", "Halves", "Stays the same", "Goes to zero"], answer: 0, why: "P/E = price ÷ earnings. Price ×2 with flat earnings → <strong>P/E ×2</strong>. You're now paying twice as much for the same profit." },
+
+  // ---------- FUNDAMENTALS ----------
+  { cat: "Fundamentals", q: "What is EPS?", options: [
+      "Net income ÷ shares outstanding",
+      "Revenue ÷ shares outstanding",
+      "Earnings ÷ share price",
+      "Total dividends per year"
+    ], answer: 0, why: "<strong>Earnings Per Share = profit ÷ share count.</strong> It's the 'E' in P/E and the base a dividend is paid from." },
+  { cat: "Fundamentals", q: "Return on equity (ROE) measures…", options: [
+      "Profit generated per dollar of shareholders' capital",
+      "The stock's price return this year",
+      "Dividends ÷ share price",
+      "Revenue growth rate"
+    ], answer: 0, why: "<strong>ROE = net income ÷ shareholders' equity.</strong> Consistently high ROE (15%+) without heavy debt is the fingerprint of a quality business." },
+  { cat: "Fundamentals", q: "A share buyback does what to EPS, all else equal?", options: [
+      "Increases it — same profit over fewer shares",
+      "Decreases it — cash left the company",
+      "No effect — profit is unchanged",
+      "Doubles it automatically"
+    ], answer: 0, why: "Fewer shares dividing the same profit → <strong>EPS rises</strong>. Buybacks are the quiet sibling of dividends: both return cash to shareholders." },
+  { cat: "Fundamentals", q: "Which is generally the SAFEST sign in a dividend stock?", options: [
+      "Moderate yield with a long record of annual increases",
+      "The highest yield you can find",
+      "A payout ratio above 100%",
+      "A dividend paid from borrowed money"
+    ], answer: 0, why: "A <strong>growing dividend covered comfortably by earnings</strong> beats a fat yield every time. Payout above 100% means the dividend costs more than the company earns — unsustainable." },
+  { cat: "Fundamentals", q: "Debt-to-equity ratio of 3.0 means…", options: [
+      "The company owes $3 of debt per $1 of shareholder equity",
+      "The company has 3x more equity than debt",
+      "Profit is 3x the debt",
+      "The stock will fall 3%"
+    ], answer: 0, why: "<strong>D/E = total debt ÷ equity.</strong> 3.0 is heavily leveraged for most industries — fine for utilities, alarming for a retailer. Debt magnifies both good and bad years." },
+  { cat: "Fundamentals", q: "$10,000 compounding at 8% per year is worth roughly what in 9 years?", fig: "Rule of 72: 72 ÷ 8 = 9 years to double", options: ["$14,000", "$18,000", "$20,000", "$28,000"], answer: 2, why: "<strong>Rule of 72:</strong> money doubles in 72 ÷ rate years. 72 ÷ 8 = 9 → $10k becomes ~<strong>$20k</strong>. The most useful mental shortcut in finance." },
+  { cat: "Fundamentals", q: "Total return on a stock equals…", options: [
+      "Price change + dividends received",
+      "Price change only",
+      "Dividends only",
+      "Revenue growth + price change"
+    ], answer: 0, why: "<strong>Total return = capital gain + income.</strong> Over long periods, reinvested dividends have historically made up a large share of stock market returns — ignoring them understates everything." }
+];
+
+/* =====================================================
+   STATE & STORAGE
+   ===================================================== */
+const store = {
+  load() {
+    try { return JSON.parse(localStorage.getItem("ledger_stats")) || { best: 0 }; }
+    catch { return { best: 0 }; }
+  },
+  save(s) { localStorage.setItem("ledger_stats", JSON.stringify(s)); }
+};
+
+const state = {
+  score: 0, attempted: 0, streak: 0,
+  best: store.load().best,
+  deck: [], deckPos: 0,       // shuffled question order
+  flashDeck: [], flashPos: 0,
+  answered: false
+};
+
+const $ = (s) => document.querySelector(s);
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* =====================================================
+   QUIZ MODE
+   ===================================================== */
+function nextQuestion() {
+  if (state.deckPos >= state.deck.length) {
+    state.deck = shuffle(QUESTIONS);
+    state.deckPos = 0;
+  }
+  const q = state.deck[state.deckPos++];
+  state.answered = false;
+
+  $("#q-category").textContent = q.cat;
+  $("#q-text").innerHTML = q.q + (q.fig ? `<span class="figures">${q.fig}</span>` : "");
+  $("#q-verdict").className = "verdict";
+  $("#q-explain").className = "explain";
+  $("#btn-next").style.visibility = "hidden";
+
+  const letters = ["A", "B", "C", "D"];
+  const box = $("#q-options");
+  box.innerHTML = "";
+  // Shuffle option order, remember where the right one lands
+  const order = shuffle(q.options.map((_, i) => i));
+  order.forEach((origIdx, pos) => {
+    const btn = document.createElement("button");
+    btn.className = "option";
+    btn.innerHTML = `<span class="letter">${letters[pos]}</span><span>${q.options[origIdx]}</span>`;
+    btn.addEventListener("click", () => answer(btn, origIdx === q.answer, q));
+    box.appendChild(btn);
+  });
+
+  // restart card animation
+  const card = $("#quiz-card");
+  card.style.animation = "none"; void card.offsetWidth; card.style.animation = "";
+}
+
+function answer(btn, correct, q) {
+  if (state.answered) return;
+  state.answered = true;
+  state.attempted++;
+
+  document.querySelectorAll(".option").forEach((b) => (b.disabled = true));
+  if (correct) {
+    btn.classList.add("right");
+    state.score++;
+    state.streak++;
+    if (state.streak > state.best) { state.best = state.streak; store.save({ best: state.best }); }
+    verdict(`▲ CORRECT — streak ${state.streak}`, "gain");
+  } else {
+    btn.classList.add("wrong");
+    // reveal the right answer
+    document.querySelectorAll(".option").forEach((b) => {
+      if (b.textContent.slice(1).trim() === q.options[q.answer]) b.classList.add("right");
+    });
+    state.streak = 0;
+    verdict("▼ WRONG — streak reset", "loss");
+  }
+
+  const ex = $("#q-explain");
+  ex.innerHTML = q.why;
+  ex.classList.add("show");
+  $("#btn-next").style.visibility = "visible";
+  paintScoreboard();
+}
+
+function verdict(text, cls) {
+  const v = $("#q-verdict");
+  v.textContent = text;
+  v.className = `verdict show ${cls}`;
+}
+
+function paintScoreboard() {
+  $("#sb-score").textContent = state.score;
+  $("#sb-attempted").textContent = state.attempted;
+  const st = $("#sb-streak");
+  st.textContent = state.streak;
+  st.classList.toggle("streak-hot", state.streak >= 3);
+  $("#sb-best").textContent = state.best;
+}
+
+/* =====================================================
+   FLASHCARD MODE (terms + definitions from the bank)
+   ===================================================== */
+const FLASHCARDS = [
+  { cat: "Dividends", term: "Dividend Yield", def: "Annual dividend per share ÷ share price. A $2 dividend on a $50 stock = 4% yield." },
+  { cat: "Dividends", term: "Payout Ratio", def: "Dividends ÷ net income. Shows how much of profit is paid out. Above ~80% can signal a stretched dividend." },
+  { cat: "Dividends", term: "Ex-Dividend Date", def: "Buy before this date to receive the next dividend. On or after it, the seller keeps the payment." },
+  { cat: "Dividends", term: "DRIP", def: "Dividend ReInvestment Plan — dividends automatically buy more shares. Compounding on autopilot." },
+  { cat: "Dividends", term: "Dividend Aristocrat", def: "A company that has raised its dividend for 25+ consecutive years." },
+  { cat: "Dividends", term: "Yield Trap", def: "A suspiciously high yield caused by a crashing price — the market expects the dividend to be cut." },
+  { cat: "Valuation", term: "P/E Ratio", def: "Price ÷ earnings per share. How many dollars you pay per $1 of annual profit. Higher = more growth expected." },
+  { cat: "Valuation", term: "Market Cap", def: "Share price × shares outstanding. What the whole company is valued at. A low share price ≠ cheap company." },
+  { cat: "Valuation", term: "PEG Ratio", def: "P/E ÷ earnings growth rate. Roughly: under 1.0 suggests you're not overpaying for growth." },
+  { cat: "Valuation", term: "P/B Ratio", def: "Price ÷ book value (net assets). Most useful for banks and asset-heavy businesses." },
+  { cat: "Valuation", term: "Free Cash Flow", def: "Cash generated after real expenses and investment. Harder to manipulate than accounting profit; funds dividends and buybacks." },
+  { cat: "Fundamentals", term: "EPS", def: "Earnings Per Share = net income ÷ shares outstanding. The 'E' in P/E." },
+  { cat: "Fundamentals", term: "ROE", def: "Return on Equity = net income ÷ shareholders' equity. Consistent 15%+ without heavy debt marks a quality business." },
+  { cat: "Fundamentals", term: "Share Buyback", def: "Company repurchases its own shares. Same profit ÷ fewer shares → EPS rises. The quiet sibling of dividends." },
+  { cat: "Fundamentals", term: "Debt-to-Equity", def: "Total debt ÷ shareholder equity. Leverage magnifies both good and bad years. What's 'high' depends on the industry." },
+  { cat: "Fundamentals", term: "Rule of 72", def: "Years to double your money ≈ 72 ÷ annual return %. At 8%, money doubles every 9 years." },
+  { cat: "Fundamentals", term: "Total Return", def: "Price change + dividends. Reinvested dividends have historically driven a large share of long-term stock returns." }
+];
+
+function nextFlash() {
+  if (state.flashPos >= state.flashDeck.length) {
+    state.flashDeck = shuffle(FLASHCARDS);
+    state.flashPos = 0;
+  }
+  const f = state.flashDeck[state.flashPos++];
+  const card = $("#flash-card");
+  card.classList.remove("flipped");
+  // wait for un-flip before swapping text so the answer doesn't flash
+  setTimeout(() => {
+    $("#f-category").textContent = f.cat;
+    $("#f-term").textContent = f.term;
+    $("#f-def").textContent = f.def;
+  }, card.classList.contains("flipped") ? 250 : 0);
+}
+
+/* =====================================================
+   WIRING
+   ===================================================== */
+$("#tab-quiz").addEventListener("click", () => switchMode("quiz"));
+$("#tab-flash").addEventListener("click", () => switchMode("flash"));
+$("#btn-next").addEventListener("click", nextQuestion);
+$("#btn-flash-next").addEventListener("click", nextFlash);
+$("#btn-shuffle").addEventListener("click", () => { state.flashDeck = shuffle(FLASHCARDS); state.flashPos = 0; nextFlash(); });
+$("#flash-card").addEventListener("click", () => $("#flash-card").classList.toggle("flipped"));
+
+function switchMode(mode) {
+  const quiz = mode === "quiz";
+  $("#tab-quiz").classList.toggle("active", quiz);
+  $("#tab-flash").classList.toggle("active", !quiz);
+  $("#quiz-view").style.display = quiz ? "" : "none";
+  $("#flash-view").style.display = quiz ? "none" : "";
+}
+
+/* Boot */
+state.deck = shuffle(QUESTIONS);
+state.flashDeck = shuffle(FLASHCARDS);
+paintScoreboard();
+nextQuestion();
+nextFlash();
+</script>
+</body>
+</html>
